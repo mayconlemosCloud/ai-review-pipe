@@ -1,11 +1,12 @@
-"""Review de PR (GitHub) ou MR (GitLab) com Claude.
+"""Review de PR (GitHub) ou MR (GitLab) com o Claude Code CLI.
 
 Detecta a plataforma pelas variáveis de ambiente da CI, pega o diff,
-pede o review ao Claude e publica (ou atualiza) um comentário no PR/MR.
+pede o review ao `claude -p` e publica (ou atualiza) um comentário no PR/MR.
 
 Variáveis:
-  ANTHROPIC_API_KEY   obrigatória
-  REVIEW_MODEL        padrão: claude-opus-5-5
+  CLAUDE_CODE_OAUTH_TOKEN  token da assinatura (gerado com `claude setup-token`)
+                           ou ANTHROPIC_API_KEY, se preferir pagar por uso
+  REVIEW_MODEL        padrão: opus
   REVIEW_EFFORT       low | medium | high | xhigh | max (padrão: high)
   REVIEW_LANGUAGE     idioma do comentário (padrão: português do Brasil)
   REVIEW_RULES_FILE   arquivo do repo com regras extras (padrão: .ai-review.md)
@@ -17,14 +18,13 @@ Variáveis:
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
 
-import anthropic
-
 MARKER = "<!-- ai-review-pipe -->"
-FALLBACK_MODELS = {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}
 
 
 def env(name, default=None, required=False):
@@ -153,33 +153,28 @@ def build_prompt(platform, diff, truncated):
 
 
 def ask_claude(system, user):
-    client = anthropic.Anthropic()
-    model = env("REVIEW_MODEL", "claude-opus-5-5")
-    kwargs = dict(
-        model=model,
-        max_tokens=64000,
-        output_config={"effort": env("REVIEW_EFFORT", "high")},
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    if model in FALLBACK_MODELS:
-        # Se o modelo recusar por política, a API refaz a chamada num modelo de fallback.
-        stream = client.beta.messages.stream(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **kwargs)
-    else:
-        stream = client.messages.stream(**kwargs)
-    with stream as s:
-        response = s.get_final_message()
-
-    if response.stop_reason == "refusal":
-        return "⚠️ O modelo recusou revisar este diff."
-    text = "".join(b.text for b in response.content if b.type == "text").strip()
-    if response.stop_reason == "max_tokens":
-        text += "\n\n_(review cortado: limite de tokens atingido)_"
-    return text
+    claude = shutil.which("claude")
+    if not claude:
+        sys.exit("[ai-review] Claude Code CLI não encontrado (npm install -g @anthropic-ai/claude-code).")
+    cmd = [
+        claude, "-p",
+        "--tools", "",  # só lê o diff recebido; sem acesso a arquivos ou comandos
+        "--system-prompt", system,
+        "--model", env("REVIEW_MODEL", "opus"),
+        "--effort", env("REVIEW_EFFORT", "high"),
+        "--output-format", "text",
+    ]
+    # A action repassa inputs vazios como "", e uma chave vazia não pode ofuscar o token.
+    child_env = {k: v for k, v in os.environ.items() if not (k.startswith("ANTHROPIC_") or k.startswith("CLAUDE_CODE_")) or v}
+    result = subprocess.run(cmd, input=user, capture_output=True, text=True, encoding="utf-8", timeout=1800, env=child_env)
+    if result.returncode != 0:
+        sys.exit(f"[ai-review] claude falhou ({result.returncode}): {(result.stderr or result.stdout)[:1000]}")
+    return result.stdout.strip()
 
 
 def main():
-    env("ANTHROPIC_API_KEY", required=True)
+    if not (env("CLAUDE_CODE_OAUTH_TOKEN") or env("ANTHROPIC_API_KEY")):
+        sys.exit("[ai-review] defina CLAUDE_CODE_OAUTH_TOKEN (assinatura) ou ANTHROPIC_API_KEY.")
     if env("GITHUB_ACTIONS") == "true":
         platform = GitHub()
     elif env("GITLAB_CI") == "true":

@@ -1,10 +1,10 @@
 # ai-review-pipe
 
-Pipe central de **review de código com IA (Claude)**. Os outros repositórios só "chamam" esta pipe e, a cada PR (GitHub) ou MR (GitLab), recebem um comentário com o review.
+Pipe central de **review de código com IA**, usando o **Claude Code CLI** com a sua assinatura do Claude (Pro/Max), sem precisar de chave de API. Os outros repositórios só "chamam" esta pipe e, a cada PR (GitHub) ou MR (GitLab), recebem um comentário com o review.
 
 ```
 repo-qualquer (código normal)          ai-review-pipe (este repo)
-  PR/MR aberto ──── chama ────────────▶  pega o diff → Claude → comenta no PR/MR
+  PR/MR aberto ──── chama ────────────▶  pega o diff → claude -p → comenta no PR/MR
 ```
 
 O comentário é **atualizado** a cada novo push (não vira spam).
@@ -13,11 +13,23 @@ O comentário é **atualizado** a cada novo push (não vira spam).
 
 | Arquivo | Para quê |
 |---|---|
-| `scripts/review.py` | O cérebro: detecta GitHub/GitLab, pega o diff, chama o Claude e comenta |
+| `scripts/review.py` | O cérebro: detecta GitHub/GitLab, pega o diff, roda `claude -p` e comenta |
 | `.github/workflows/ai-review.yml` | Reusable workflow (a "pipe" do GitHub) |
 | `action.yml` | Action composta usada pelo workflow (também dá para usar direto) |
 | `gitlab/ai-review.yml` | Template para `include` no GitLab |
 | `examples/` | O que copiar nos outros repositórios |
+
+## 0. Gerar o token da sua assinatura (uma vez só)
+
+No seu computador, com o Claude Code logado:
+
+```bash
+claude setup-token
+```
+
+Ele mostra um token longo (`sk-ant-oat...`). Guarde: é ele que vai como secret nos repositórios. Os reviews passam a contar no limite de uso da sua assinatura.
+
+> Prefere pagar por uso? Use `ANTHROPIC_API_KEY` no lugar do token; o resto funciona igual.
 
 ## 1. Publicar esta pipe
 
@@ -28,7 +40,7 @@ O comentário é **atualizado** a cada novo push (não vira spam).
 
 ## 2. Usar em um repositório do GitHub
 
-1. Em *Settings → Secrets and variables → Actions*, crie o secret `ANTHROPIC_API_KEY`.
+1. Em *Settings → Secrets and variables → Actions*, crie o secret `CLAUDE_CODE_OAUTH_TOKEN` com o token do passo 0.
 2. Copie [`examples/github/pr-review.yml`](examples/github/pr-review.yml) para `.github/workflows/pr-review.yml`.
 
 Pronto. Parâmetros opcionais em `with:` → `model`, `effort` (`low`…`max`), `language`, `rules_file`.
@@ -38,7 +50,7 @@ Pronto. Parâmetros opcionais em `with:` → `model`, `effort` (`low`…`max`), 
 ## 3. Usar em um projeto do GitLab
 
 1. Em *Settings → CI/CD → Variables*, crie (Masked):
-   - `ANTHROPIC_API_KEY`
+   - `CLAUDE_CODE_OAUTH_TOKEN` (token do passo 0)
    - `GITLAB_TOKEN` → *Settings → Access Tokens*, escopo `api`, papel Reporter ou superior.
 2. Adicione ao `.gitlab-ci.yml`:
 
@@ -57,13 +69,15 @@ Crie um `.ai-review.md` na raiz do repositório consumidor com o que a IA deve c
 
 | Variável | Padrão |
 |---|---|
-| `REVIEW_MODEL` | `claude-opus-5-5` |
+| `REVIEW_MODEL` | `opus` (ou `sonnet`, `haiku`) |
 | `REVIEW_EFFORT` | `high` (use `medium`/`low` para gastar menos) |
 | `REVIEW_LANGUAGE` | `português do Brasil` |
 | `REVIEW_RULES_FILE` | `.ai-review.md` |
 | `REVIEW_MAX_CHARS` | `400000` (diffs maiores são cortados e o review avisa) |
 | `REVIEW_DRY_RUN` | `1` imprime o review sem comentar |
 
-## Custo
+## Uso e limites
 
-Cada review é uma chamada à API da Anthropic, cobrada pelo tamanho do diff. Para baratear: `effort: medium` ou `model: claude-sonnet-5-5`.
+Cada review consome do limite da sua assinatura, proporcional ao tamanho do diff. Para gastar menos: `effort: medium` ou `model: sonnet`.
+
+O Claude roda com `--tools ""`: ele só lê o diff, sem acesso a arquivos nem comandos do runner.

@@ -1,15 +1,18 @@
 name: AI Review
-description: Review de pull request com Claude, comentado direto no PR.
+description: Review de pull request com o Claude Code CLI, comentado direto no PR.
 inputs:
+  claude_code_oauth_token:
+    description: Token da assinatura do Claude (gerado com `claude setup-token`)
+    default: ""
   anthropic_api_key:
-    description: Chave da API da Anthropic
-    required: true
+    description: Alternativa ao token, cobrada por uso na API
+    default: ""
   github_token:
     description: Token com permissão pull-requests write
     default: ${{ github.token }}
   model:
-    description: Modelo Claude
-    default: claude-opus-5-5
+    description: Modelo (opus, sonnet, haiku ou nome completo)
+    default: opus
   effort:
     description: low | medium | high | xhigh | max
     default: high
@@ -22,14 +25,12 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
     - shell: bash
-      run: pip install -q -r "${{ github.action_path }}/requirements.txt"
+      run: npm install -g @anthropic-ai/claude-code
     - shell: bash
-      run: python "${{ github.action_path }}/scripts/review.py"
+      run: python3 "${{ github.action_path }}/scripts/review.py"
       env:
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
         REVIEW_MODEL: ${{ inputs.model }}
