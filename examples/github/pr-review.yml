@@ -1,0 +1,17 @@
+# Copie para .github/workflows/pr-review.yml no repositório que vai usar a pipe.
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  ai-review:
+    uses: mayconlemosCloud/ai-review-pipe/.github/workflows/ai-review.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    # with:
+    #   effort: medium

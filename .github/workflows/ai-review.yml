@@ -1,0 +1,40 @@
+# Pipe reutilizável: outros repositórios chamam com
+#   uses: mayconlemosCloud/ai-review-pipe/.github/workflows/ai-review.yml@main
+name: AI Review
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        default: claude-opus-5-5
+      effort:
+        type: string
+        default: high
+      language:
+        type: string
+        default: português do Brasil
+      rules_file:
+        type: string
+        default: .ai-review.md
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  review:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # Código do repositório que chamou (para ler o .ai-review.md, se existir)
+      - uses: actions/checkout@v4
+      - uses: mayconlemosCloud/ai-review-pipe@main
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: ${{ inputs.model }}
+          effort: ${{ inputs.effort }}
+          language: ${{ inputs.language }}
+          rules_file: ${{ inputs.rules_file }}

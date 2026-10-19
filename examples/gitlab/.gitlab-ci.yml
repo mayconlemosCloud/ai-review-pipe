@@ -1,0 +1,12 @@
+# Exemplo de .gitlab-ci.yml de um projeto que usa a pipe.
+stages:
+  - test
+
+include:
+  - remote: https://raw.githubusercontent.com/mayconlemosCloud/ai-review-pipe/main/gitlab/ai-review.yml
+
+# Seus jobs normais continuam aqui
+testes:
+  stage: test
+  script:
+    - echo "rodando testes do projeto"

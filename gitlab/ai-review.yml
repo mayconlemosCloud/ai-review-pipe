@@ -1,0 +1,21 @@
+# Pipe reutilizável para GitLab. No .gitlab-ci.yml do outro projeto:
+#   include:
+#     - remote: https://raw.githubusercontent.com/mayconlemosCloud/ai-review-pipe/main/gitlab/ai-review.yml
+# Variáveis de CI/CD necessárias (Settings > CI/CD > Variables, marcadas como Masked):
+#   ANTHROPIC_API_KEY  e  GITLAB_TOKEN (Project Access Token, escopo "api", papel Reporter ou acima)
+
+variables:
+  AI_REVIEW_PIPE_URL: https://raw.githubusercontent.com/mayconlemosCloud/ai-review-pipe/main
+  REVIEW_MODEL: claude-opus-5-5
+  REVIEW_EFFORT: high
+
+ai-review:
+  stage: test
+  image: python:3.12-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_DRAFT != "true"
+  allow_failure: true
+  script:
+    - pip install -q -r "$AI_REVIEW_PIPE_URL/requirements.txt"
+    - python -c "import urllib.request as u; u.urlretrieve('$AI_REVIEW_PIPE_URL/scripts/review.py', '/tmp/review.py')"
+    - python /tmp/review.py

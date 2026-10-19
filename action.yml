@@ -1,0 +1,38 @@
+name: AI Review
+description: Review de pull request com Claude, comentado direto no PR.
+inputs:
+  anthropic_api_key:
+    description: Chave da API da Anthropic
+    required: true
+  github_token:
+    description: Token com permissão pull-requests write
+    default: ${{ github.token }}
+  model:
+    description: Modelo Claude
+    default: claude-opus-5-5
+  effort:
+    description: low | medium | high | xhigh | max
+    default: high
+  language:
+    description: Idioma do comentário
+    default: português do Brasil
+  rules_file:
+    description: Arquivo do repositório com regras extras de review
+    default: .ai-review.md
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - shell: bash
+      run: pip install -q -r "${{ github.action_path }}/requirements.txt"
+    - shell: bash
+      run: python "${{ github.action_path }}/scripts/review.py"
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        REVIEW_MODEL: ${{ inputs.model }}
+        REVIEW_EFFORT: ${{ inputs.effort }}
+        REVIEW_LANGUAGE: ${{ inputs.language }}
+        REVIEW_RULES_FILE: ${{ inputs.rules_file }}
