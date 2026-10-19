@@ -25,7 +25,15 @@ on:
 
 jobs:
   review:
-    if: ${{ !github.event.pull_request.draft }}
+    # Pula drafts, PRs de fork e do Dependabot (eles não recebem os secrets).
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    # Push novo no PR cancela o review anterior que ainda estiver rodando.
+    concurrency:
+      group: ai-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read

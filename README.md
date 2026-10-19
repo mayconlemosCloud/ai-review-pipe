@@ -45,7 +45,7 @@ Ele mostra um token longo (`sk-ant-oat...`). Guarde: é ele que vai como secret 
 
 Pronto. Parâmetros opcionais em `with:` → `model`, `effort` (`low`…`max`), `language`, `rules_file`.
 
-> PRs vindos de **fork** não recebem secrets no evento `pull_request`, então o review não roda neles.
+> PRs de **fork**, do Dependabot e drafts são pulados (não recebem os secrets). Um push novo cancela o review anterior que ainda estiver rodando.
 
 ## 3. Usar em um projeto do GitLab
 

@@ -1,0 +1,17 @@
+# Auto-review: a própria pipe revisa os PRs deste repositório.
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  ai-review:
+    uses: mayconlemosCloud/ai-review-pipe/.github/workflows/ai-review.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    # with:
+    #   effort: medium
